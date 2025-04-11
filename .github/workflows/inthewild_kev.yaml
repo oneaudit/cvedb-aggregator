@@ -1,0 +1,51 @@
+name: InTheWild KEV
+
+on:
+  schedule:
+    - cron: '0 2 * * *' # runs every day at 2 AM UTC
+  workflow_dispatch:     # allows manual run from GitHub UI
+
+jobs:
+  fetch-pocs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout your repo
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl jq
+
+      - name: Fetch itw_kev.json from InTheWild
+        id: fetch_exploited
+        run: |
+          curl -s https://inthewild.io/api/exploited -o new_itw_kev.json
+
+      - name: Compare hashes
+        id: compare
+        run: |
+          if [ -f itw_kev.json ]; then
+            OLD_HASH=$(md5sum itw_kev.json | cut -d ' ' -f1)
+          else
+            OLD_HASH="none"
+          fi
+          NEW_HASH=$(md5sum new_itw_kev.json | cut -d ' ' -f1)
+          echo "Old: $OLD_HASH"
+          echo "New: $NEW_HASH"
+          if [ "$OLD_HASH" != "$NEW_HASH" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Replace file and commit if changed
+        if: steps.compare.outputs.changed == 'true'
+        run: |
+          mv new_itw_kev.json itw_kev.json
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add itw_kev.json
+          git commit -m "[chore] Update itw_kev.json"
+          git push origin main
