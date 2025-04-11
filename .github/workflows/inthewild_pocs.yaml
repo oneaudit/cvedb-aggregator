@@ -21,7 +21,7 @@ jobs:
       - name: Fetch itw_pocs.json from InTheWild
         id: fetch_pocs
         run: |
-          curl --max-time 20 -s https://inthewild.io/api/exploits -o new_itw_pocs.json
+          curl --max-time 60 -s https://inthewild.io/api/exploits -o new_itw_pocs.json
 
       - name: Compare hashes
         id: compare
