@@ -1,0 +1,51 @@
+name: InTheWild POCs
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # this will run once a week on Sundays at midnight UTC
+  workflow_dispatch:     # allows manual run from GitHub UI
+
+jobs:
+  fetch-pocs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout your repo
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl jq
+
+      - name: Fetch itw_pocs.json from InTheWild
+        id: fetch_pocs
+        run: |
+          curl --max-time 20 -s https://inthewild.io/api/exploits -o new_itw_pocs.json
+
+      - name: Compare hashes
+        id: compare
+        run: |
+          if [ -f itw_pocs.json ]; then
+            OLD_HASH=$(md5sum itw_pocs.json | cut -d ' ' -f1)
+          else
+            OLD_HASH="none"
+          fi
+          NEW_HASH=$(md5sum new_itw_pocs.json | cut -d ' ' -f1)
+          echo "Old: $OLD_HASH"
+          echo "New: $NEW_HASH"
+          if [ "$OLD_HASH" != "$NEW_HASH" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Replace file and commit if changed
+        if: steps.compare.outputs.changed == 'true'
+        run: |
+          mv new_itw_pocs.json itw_pocs.json
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add itw_pocs.json
+          git commit -m "[chore] Update itw_pocs.json"
+          git push origin main
